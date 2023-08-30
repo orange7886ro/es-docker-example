@@ -1,92 +1,64 @@
-# reference:
-# https://www.elastic.co/blog/getting-started-with-the-elastic-stack-and-docker-compose
-version: "3.8"
+version: '3'
 services:
-  setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
-    container_name: setup
-    user: "0"
-    networks:
-      - elastic
-    command: >
-      bash -c '
-        if [ x${ELASTIC_PASSWORD} == x ]; then
-          echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
-          exit 1;
-        elif [ x${KIBANA_PASSWORD} == x ]; then
-          echo "Set the KIBANA_PASSWORD environment variable in the .env file";
-          exit 1;
-        fi;
-        echo "Setting file permissions"
-        find . -type d -exec chmod 750 \{\} \;;
-        find . -type f -exec chmod 640 \{\} \;;
-        echo "Waiting for Elasticsearch availability";
-        until curl -s http://es01:9200 | grep "missing authentication credentials"; do sleep 5; done;
-        echo "Setting kibana_system password";
-        until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 5; done;
-        echo "All done!";
-      '
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     restart: on-failure
     container_name: es01
-    labels:
-      co.elastic.logs/module: elasticsearch
     environment:
       - node.name=es01
       - cluster.name=${CLUSTER_NAME}
-      - discovery.type=single-node
+      - discovery.seed_hosts=es02
+      - cluster.initial_master_nodes=es01,es02
       - bootstrap.memory_lock=true
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - indices.query.bool.max_clause_count=10240
-    mem_limit: ${ES_MEM_LIMIT}
+      - "ES_JAVA_OPTS=$ES_JAVA_OPTS"
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - esdata01:/usr/share/elasticsearch/data
+      - data01:/usr/share/elasticsearch/data
+      - ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     ports:
       - ${ES_PORT}:9200
     networks:
       - elastic
-    healthcheck:
-     test:
-       [
-         "CMD-SHELL",
-         "curl -s http://es01:9200 | grep 'missing authentication credentials'",
-       ]
-     interval: 10s
-     timeout: 10s
-     retries: 120
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    container_name: es02
     restart: on-failure
-    container_name: kibana
-    labels:
-      co.elastic.logs/module: kibana
-    depends_on:
-     es01:
-       condition: service_healthy
     environment:
-      - SERVERNAME=kibana
-      - ELASTICSEARCH_HOSTS=http://es01:9200
-      - ELASTICSEARCH_USERNAME=${KIBANA_USER}
-      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
-      - monitoring.enabled=true
-    mem_limit: ${KB_MEM_LIMIT}
+      - node.name=es02
+      - cluster.name=${CLUSTER_NAME}
+      - discovery.seed_hosts=es01
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=$ES_JAVA_OPTS"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
-      - kibanadata:/usr/share/kibana/data
-    ports:
-      - ${KIBANA_PORT}:5601
+      - data02:/usr/share/elasticsearch/data
+      - ./elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
     networks:
       - elastic
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+  #   container_name: kibana
+  #   restart: on-failure
+  #   volumes:
+  #     - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+  #   depends_on:
+  #     - es01
+  #   networks:
+  #     - elastic
+  #   ports:
+  #     - ${KIBANA_PORT}:5601
 
 volumes:
-  esdata01:
+  data01:
     driver: local
-  kibanadata:
+  data02:
     driver: local
 
 networks:
