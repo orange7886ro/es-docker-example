@@ -59,7 +59,8 @@ sysctl -w vm.max_map_count=262144
       {
         "properties": {
           "start_date": {
-            "type": "date"
+            "type": "date",
+            "format": "yyyy-MM-dd"
           },
           "country": {
             "type": "keyword"
@@ -131,9 +132,6 @@ sysctl -w vm.max_map_count=262144
                 "type": "keyword"
               }
             }
-          },
-          "create_date": {
-            "type": "date"
           }
         }
       }
@@ -143,4 +141,19 @@ sysctl -w vm.max_map_count=262144
 
 * import documents
     - POST http://localhost:9200/title/_doc
+    ```
+    {
+      "start_date": "1994-01-01",
+      "country": "us",
+      "genres": ["drama"],
+      "is_free": true,
+      "total_view_count": 2791,
+      "rating": 9.3,
+      "title": "The Shawshank Redemption",
+      "casts": [{"id": "00001","name": "Tim Robbins"}, {"id": "00002","name": "Morgan Freeman"}],
+      "view_count_by_years": [{"year": "1995","view_count": "789"}, {"year": "1996","view_count": "6666"}],
+      "cover_image_urls" { "tv": "http://hello.com/the_shawshank_redemption/tv.jpg", "app": "http://hello.com/the_shawshank_redemption/app.jpg", , "web": "http://hello.com/the_shawshank_redemption/web.jpg"},
+      "create_date": "2023-08-31"
+    }
+    ```
 
